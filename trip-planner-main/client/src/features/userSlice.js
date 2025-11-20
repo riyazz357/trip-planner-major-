@@ -4,7 +4,7 @@ import axios from "axios";
 const user = JSON.parse(localStorage.getItem("user"));
 
 // 1. Define the Base URL for User routes
-const API_URL = "https://trip-planner-major-1.onrender.com/api/users/"; 
+const API_URL = "https://trip-planner-major-1.onrender.com/api/auth/"; 
 
 const initialState = {
   user: user ? user : null,
