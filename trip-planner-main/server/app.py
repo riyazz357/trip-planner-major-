@@ -124,5 +124,5 @@ def chat():
 
     return jsonify({"reply": bot_response})
 if __name__ == '__main__':
-    # Make sure to use the port your React app is calling (e.g., 5002)
-    app.run(port=5002, debug=True)
+    port = int(os.environ.get("PORT", 10000)) # Default to 10000 for Render
+    app.run(host='0.0.0.0', port=port)
