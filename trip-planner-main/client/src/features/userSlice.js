@@ -2,7 +2,7 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axios from "axios";
 
 const user = JSON.parse(localStorage.getItem("user"));
-
+const API_URL = "https://trip-planner-major-1.onrender.com";
 const initialState = {
   user: user ? user : null,
   isError: false,
@@ -16,7 +16,7 @@ export const userRegister = createAsyncThunk(
   async ({ name, email, password, bio }, thunkAPI) => {
     try {
       const response = await axios.post(
-        "/api/auth/register",
+        API_URL,
         { name, email, password, bio }
       );
       if (response.data) {
