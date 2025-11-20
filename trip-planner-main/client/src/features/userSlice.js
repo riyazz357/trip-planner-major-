@@ -2,7 +2,10 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axios from "axios";
 
 const user = JSON.parse(localStorage.getItem("user"));
-const API_URL = "https://trip-planner-major-1.onrender.com";
+
+// 1. Define the Base URL for User routes
+const API_URL = "https://trip-planner-major-1.onrender.com/api/users/"; 
+
 const initialState = {
   user: user ? user : null,
   isError: false,
@@ -15,8 +18,9 @@ export const userRegister = createAsyncThunk(
   "user/userRegister",
   async ({ name, email, password, bio }, thunkAPI) => {
     try {
+      // 2. Fix: Append 'register' to the API_URL
       const response = await axios.post(
-        API_URL,
+        API_URL + "register", 
         { name, email, password, bio }
       );
       if (response.data) {
@@ -39,8 +43,9 @@ export const userLogin = createAsyncThunk(
   "user/userLogin",
   async ({ email, password }, thunkAPI) => {
     try {
+      // 3. Fix: Use API_URL + 'login' instead of relative path
       const response = await axios.post(
-        "/api/auth/login",
+        API_URL + "login", 
         {
           email,
           password,
