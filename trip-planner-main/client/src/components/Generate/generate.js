@@ -396,8 +396,6 @@ export default Generate;
 //  '''
 import React, { useState } from "react";
 import { toast } from "react-toastify";
-import ReactQuill from 'react-quill'; // 1. Import Editor
-import 'react-quill/dist/quill.snow.css'; // 1. Import Editor Styles
 import { generateItinerary } from "../../services/gemini";
 import { getWeather } from "../../services/weather";
 import "react-toastify/dist/ReactToastify.css";
@@ -406,18 +404,18 @@ import "./generate.scss";
 const Generate = () => {
   const [view, setView] = useState('start'); 
   
-  // This state will hold the Editable HTML content
-  const [editableContent, setEditableContent] = useState(""); 
-  
   const [formData, setFormData] = useState({
     source: "", destination: "", start_date: "", end_date: "",
     adults: 1, children: 0, budget: "mid", interests: [],
   });
+  
+  // State now holds the structured object { itinerary_html, expenses, total_cost }
+  const [planData, setPlanData] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // ... (Keep handleChange, handleInterestChange, handleStartClick, handleReset) ...
-  // (Re-paste them from previous code if needed)
+  // ... (Keep handleChange, handleInterestChange, handleStartClick, handleReset from previous code) ...
+  // Re-paste them here to keep the code complete
   const handleChange = (e) => {
       const { name, value } = e.target;
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -430,42 +428,36 @@ const Generate = () => {
     });
   };
   const handleStartClick = () => setView('form');
-  const handleReset = () => { setView('start'); setEditableContent(""); setWeatherData(null); };
+  const handleReset = () => { setView('start'); setPlanData(null); setWeatherData(null); };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      const [itineraryHtml, weather] = await Promise.all([
+      // Run AI and Weather in parallel
+      const [aiData, weather] = await Promise.all([
         generateItinerary(formData),
         getWeather(formData.destination, formData.start_date, formData.end_date)
       ]);
       
-      // 2. Set the content into the Editor State
-      setEditableContent(itineraryHtml);
+      setPlanData(aiData); // Save the structured JSON
       setWeatherData(weather);
-      
       setView('result');
       toast.success("Trip planned successfully!");
 
     } catch (error) {
       console.error("Error:", error);
-      toast.error("Something went wrong. Please check your connection.");
+      toast.error("Failed to generate plan. Please check your connection.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to handle saving the edited plan (e.g., print or save to DB later)
-  const handleSaveOrPrint = () => {
-      window.print();
-  };
-
   return (
     <div className="container generate-page">
       
-      {/* VIEW 1 & 2 (Start & Form) - SAME AS BEFORE */}
+      {/* VIEW 1 & 2 (Start & Form) - No Changes needed here */}
       {view === 'start' && (
           <div className="start-container text-center">
             <h1 className="display-4 mb-4">Plan Your Dream Trip</h1>
@@ -476,9 +468,12 @@ const Generate = () => {
 
       {view === 'form' && (
         <div className="form-container fade-in">
-             {/* ... (Keep your existing form code here exactly as is) ... */}
+             {/* Copy the exact form JSX from your previous code here */}
              <h2 className="text-center mb-4">Trip Details</h2>
              <form onSubmit={handleSubmit}>
+                 {/* ... Your inputs for Source, Destination, Dates, etc ... */}
+                 {/* (I'm omitting the form fields to save space, paste them back in!) */}
+                 
                  <div className="row mb-3">
                     <div className="col-md-6">
                     <label className="form-label">From</label>
@@ -528,37 +523,42 @@ const Generate = () => {
                     ))}
                     </div>
                 </div>
+                 
                  <div className="text-center mt-4">
                     <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
                         {loading ? "Generating..." : "Generate Itinerary"}
                     </button>
+                    <button type="button" className="btn btn-link ms-3" onClick={() => setView('start')}>Cancel</button>
                  </div>
              </form>
         </div>
       )}
 
 
-      {/* VIEW 3: RESULT SCREEN (Editable) */}
-      {view === 'result' && (
+      {/* VIEW 3: RESULT SCREEN (Read Only + Beautiful Expenses) */}
+      {view === 'result' && planData && (
         <div className="result-container fade-in">
-          <div className="d-flex justify-content-between align-items-center mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-4 no-print">
             <h3>Your Trip to {formData.destination}</h3>
-            <button className="btn btn-outline-primary" onClick={handleReset}>Plan Another Trip</button>
+            <div>
+                <button className="btn btn-outline-secondary me-2" onClick={handleReset}>New Trip</button>
+                <button className="btn btn-success" onClick={() => window.print()}>Print / Save PDF</button>
+            </div>
           </div>
           
           {/* Weather Section */}
           {weatherData && weatherData.days && (
-            <div className="card mb-4 shadow-sm">
-              <div className="card-header bg-info text-white">
+            <div className="card mb-4 shadow-sm weather-section">
+              <div className="card-header bg-primary text-white">
                 <h5 className="mb-0">Weather Forecast</h5>
               </div>
               <div className="card-body">
                 <div className="d-flex flex-row overflow-auto pb-2" style={{ gap: '15px' }}>
                   {weatherData.days.slice(0, 5).map((day, index) => (
-                    <div key={index} className="text-center p-2 border rounded" style={{ minWidth: '120px', background: '#f8f9fa' }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{day.datetime}</div>
-                      <div className="my-2" style={{ fontSize: '1.5rem' }}>{Math.round(day.tempmax)}°C</div>
-                      <div className="text-muted" style={{ fontSize: '0.85rem' }}>{day.conditions}</div>
+                    <div key={index} className="text-center p-2 border rounded" style={{ minWidth: '100px', background: '#f1f5f9' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>{day.datetime}</div>
+                      <div className="my-2" style={{ fontSize: '1.2rem' }}>{Math.round(day.tempmax)}°C</div>
+                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>{day.conditions}</div>
                     </div>
                   ))}
                 </div>
@@ -566,32 +566,36 @@ const Generate = () => {
             </div>
           )}
 
-          {/* --- EDITABLE ITINERARY SECTION --- */}
-          <div className="card shadow-sm">
-            <div className="card-header bg-white">
-                <h5 className="mb-0">Itinerary & Expenses (Editable)</h5>
+          {/* 1. Itinerary Content (Read Only) */}
+          <div className="card shadow-sm mb-4">
+            <div className="card-body itinerary-body">
+              <div dangerouslySetInnerHTML={{ __html: planData.itinerary_html }} />
             </div>
-            <div className="card-body p-0">
-              {/* React Quill Editor */}
-              <ReactQuill 
-                theme="snow" 
-                value={editableContent} 
-                onChange={setEditableContent}
-                modules={{
-                    toolbar: [
-                        [{ 'header': [1, 2, false] }],
-                        ['bold', 'italic', 'underline'],
-                        [{'list': 'ordered'}, {'list': 'bullet'}],
-                        ['clean']
-                    ],
-                }}
-              />
+          </div>
+
+          {/* 2. Beautiful Expenses Section */}
+          <div className="card shadow-sm expenses-section page-break">
+            <div className="card-header bg-success text-white">
+                <h4 className="mb-0">Estimated Expenses</h4>
+            </div>
+            <div className="card-body">
+                <div className="row g-4">
+                    {planData.expenses && planData.expenses.map((item, index) => (
+                        <div key={index} className="col-md-4 col-sm-6">
+                            <div className="expense-card p-3 border rounded text-center h-100">
+                                <h5 className="text-secondary">{item.category}</h5>
+                                <h3 className="text-success my-2">{item.cost}</h3>
+                                <p className="text-muted small mb-0">{item.notes}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div className="total-cost-banner mt-4 p-3 rounded text-center text-white" style={{backgroundColor: '#2c3e50'}}>
+                    <h3 className="m-0">Total Estimated Cost: {planData.total_cost}</h3>
+                </div>
             </div>
           </div>
           
-          <div className="text-center mt-4">
-             <button className="btn btn-success btn-lg" onClick={handleSaveOrPrint}>Print / Save as PDF</button>
-          </div>
         </div>
       )}
 

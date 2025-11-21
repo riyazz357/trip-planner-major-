@@ -172,3 +172,68 @@ input[type="number"]:focus {
 
 
 
+/* generate.scss */
+
+.generate-page {
+  padding-bottom: 50px;
+}
+
+.form-container, .result-container {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Itinerary Typography */
+.itinerary-body {
+  line-height: 1.7;
+  color: #333;
+
+  h3 {
+    color: #2c3e50;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+    margin-top: 30px;
+    margin-bottom: 20px;
+  }
+  
+  ul {
+    margin-bottom: 20px;
+  }
+  
+  li {
+    margin-bottom: 8px;
+  }
+  
+  strong {
+    color: #2980b9;
+  }
+}
+
+/* Beautiful Expenses Cards */
+.expense-card {
+  background-color: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  }
+}
+
+.total-cost-banner {
+  background: linear-gradient(90deg, #2c3e50, #3498db);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Print Styles: Hide buttons when printing */
+@media print {
+  .no-print { display: none !important; }
+  .generate-page { width: 100%; padding: 0; margin: 0; }
+  .card { border: none !important; box-shadow: none !important; }
+  .page-break { page-break-before: always; }
+}
