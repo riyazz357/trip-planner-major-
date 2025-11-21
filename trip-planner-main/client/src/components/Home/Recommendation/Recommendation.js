@@ -10,7 +10,7 @@ const Recommendation = () => {
         <Template
           place="Paris"
           text="Paris ('City of Lights' ) is the capital city of France, and the largest city in France."
-          url="https://www.planetware.com/wpimages/2019/05/france-paris-eiffel-tower-visiting-highlights-eiffel-tower-night.jpg"
+          url="https://burst.shopifycdn.com/photos/the-eiffel-tower-paris.jpg?width=1000&format=pjpg&exif=0&iptc=0"
         />
         <Template
           place="Maldives"
