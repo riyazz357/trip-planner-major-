@@ -242,29 +242,176 @@ const Generate = () => {
 export default Generate;
 */
 
-/*
-working one
+
+
+
+// import React, { useState } from "react";
+// import { toast } from "react-toastify";
+// import { generateItinerary } from "../../services/gemini"; // Ensure this path is correct
+// import "react-toastify/dist/ReactToastify.css";
+// import "./generate.scss"; 
+
+// const Generate = () => {
+//   const [formData, setFormData] = useState({
+//     source: "",
+//     destination: "",
+//     start_date: "",
+//     end_date: "",
+//     adults: 1,
+//     children: 0,
+//     budget: "mid",
+//     interests: [],
+//   });
+
+//   const [result, setResult] = useState(null);
+//   const [loading, setLoading] = useState(false);
+
+//   const handleChange = (e) => {
+//     const { name, value } = e.target;
+//     setFormData((prev) => ({ ...prev, [name]: value }));
+//   };
+
+//   const handleInterestChange = (e) => {
+//     const { value, checked } = e.target;
+//     setFormData((prev) => {
+//       if (checked) {
+//         return { ...prev, interests: [...prev.interests, value] };
+//       } else {
+//         return { ...prev, interests: prev.interests.filter((i) => i !== value) };
+//       }
+//     });
+//   };
+
+//   const handleSubmit = async (e) => {
+//     e.preventDefault();
+//     setLoading(true);
+//     setResult(null);
+
+//     try {
+//       // 1. Call the Gemini Service directly
+//       const itineraryHtml = await generateItinerary(formData);
+      
+//       // 2. Set the result state with just the plan
+//       setResult({ plan_html: itineraryHtml });
+//       toast.success("Itinerary generated successfully!");
+      
+//     } catch (error) {
+//       console.error("Generation Error:", error);
+//       toast.error("Failed to generate plan. Please check your API Key.");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   return (
+//     <div className="container generate-page">
+//       <div className="form-container">
+//         <h2 className="text-center mb-4">Plan Your Trip</h2>
+        
+//         <form onSubmit={handleSubmit}>
+//           {/* --- Form Fields (Same as before) --- */}
+//           <div className="row mb-3">
+//             <div className="col-md-6">
+//               <label className="form-label">From</label>
+//               <input type="text" className="form-control" name="source" value={formData.source} onChange={handleChange} required placeholder="e.g. Mumbai" />
+//             </div>
+//             <div className="col-md-6">
+//               <label className="form-label">To</label>
+//               <input type="text" className="form-control" name="destination" value={formData.destination} onChange={handleChange} required placeholder="e.g. Paris" />
+//             </div>
+//           </div>
+
+//           <div className="row mb-3">
+//             <div className="col-md-6">
+//               <label className="form-label">Start Date</label>
+//               <input type="date" className="form-control" name="start_date" value={formData.start_date} onChange={handleChange} required />
+//             </div>
+//             <div className="col-md-6">
+//               <label className="form-label">End Date</label>
+//               <input type="date" className="form-control" name="end_date" value={formData.end_date} onChange={handleChange} required />
+//             </div>
+//           </div>
+
+//           <div className="row mb-3">
+//             <div className="col-md-4">
+//               <label className="form-label">Adults</label>
+//               <input type="number" className="form-control" name="adults" min="1" value={formData.adults} onChange={handleChange} />
+//             </div>
+//             <div className="col-md-4">
+//               <label className="form-label">Children</label>
+//               <input type="number" className="form-control" name="children" min="0" value={formData.children} onChange={handleChange} />
+//             </div>
+//             <div className="col-md-4">
+//               <label className="form-label">Budget</label>
+//               <select className="form-select" name="budget" value={formData.budget} onChange={handleChange}>
+//                 <option value="low">Budget-Friendly</option>
+//                 <option value="mid">Mid-Range</option>
+//                 <option value="high">Luxury</option>
+//               </select>
+//             </div>
+//           </div>
+
+//           <div className="mb-3">
+//             <label className="form-label">Interests</label>
+//             <div className="d-flex gap-3 flex-wrap">
+//               {["Adventure", "Culture", "Food", "Relaxation"].map((interest) => (
+//                 <div className="form-check" key={interest}>
+//                   <input className="form-check-input" type="checkbox" value={interest} onChange={handleInterestChange} id={`check-${interest}`} />
+//                   <label className="form-check-label" htmlFor={`check-${interest}`}>{interest}</label>
+//                 </div>
+//               ))}
+//             </div>
+//           </div>
+
+//           <div className="text-center">
+//             <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
+//               {loading ? "Generating..." : "Generate Itinerary"}
+//             </button>
+//           </div>
+//         </form>
+//       </div>
+
+//       {/* --- RESULTS SECTION --- */}
+//       {result && (
+//         <div className="result-container mt-5">
+//           <h3 className="text-center mb-4">Your Trip to {formData.destination}</h3>
+          
+//           {/* Removed Weather Section for now to prevent crashes */}
+//           {/* Add it back here if you implement a separate weather API call */}
+
+//           <div className="card">
+//             <div className="card-body itinerary-body">
+//               {/* Render the HTML directly */}
+//               <div dangerouslySetInnerHTML={{ __html: result.plan_html }} />
+//             </div>
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
+
+// export default Generate;
+
+//  '''
 import React, { useState } from "react";
 import { toast } from "react-toastify";
-import { generateItinerary } from "../../services/gemini"; // Ensure this path is correct
+import { generateItinerary } from "../../services/gemini"; // Your client-side service
 import "react-toastify/dist/ReactToastify.css";
 import "./generate.scss"; 
 
 const Generate = () => {
+  // State to manage the current view: 'start', 'form', or 'result'
+  const [view, setView] = useState('start'); 
+  
   const [formData, setFormData] = useState({
-    source: "",
-    destination: "",
-    start_date: "",
-    end_date: "",
-    adults: 1,
-    children: 0,
-    budget: "mid",
-    interests: [],
+    source: "", destination: "", start_date: "", end_date: "",
+    adults: 1, children: 0, budget: "mid", interests: [],
   });
-
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // --- Handlers ---
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -273,123 +420,153 @@ const Generate = () => {
   const handleInterestChange = (e) => {
     const { value, checked } = e.target;
     setFormData((prev) => {
-      if (checked) {
-        return { ...prev, interests: [...prev.interests, value] };
-      } else {
-        return { ...prev, interests: prev.interests.filter((i) => i !== value) };
-      }
+      if (checked) return { ...prev, interests: [...prev.interests, value] };
+      return { ...prev, interests: prev.interests.filter((i) => i !== value) };
+    });
+  };
+
+  const handleStartClick = () => {
+    setView('form');
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setView('start');
+    setFormData({ // Optional: Clear form on reset
+        source: "", destination: "", start_date: "", end_date: "",
+        adults: 1, children: 0, budget: "mid", interests: [],
     });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setResult(null);
-
+    
     try {
-      // 1. Call the Gemini Service directly
       const itineraryHtml = await generateItinerary(formData);
-      
-      // 2. Set the result state with just the plan
       setResult({ plan_html: itineraryHtml });
+      setView('result'); // Switch to result view ONLY after success
       toast.success("Itinerary generated successfully!");
-      
     } catch (error) {
-      console.error("Generation Error:", error);
-      toast.error("Failed to generate plan. Please check your API Key.");
+      console.error("Error:", error);
+      toast.error("Failed to generate plan. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // --- RENDER ---
   return (
     <div className="container generate-page">
-      <div className="form-container">
-        <h2 className="text-center mb-4">Plan Your Trip</h2>
-        
-        <form onSubmit={handleSubmit}>
-          {/* --- Form Fields (Same as before) --- */}
-          <div className="row mb-3">
-            <div className="col-md-6">
-              <label className="form-label">From</label>
-              <input type="text" className="form-control" name="source" value={formData.source} onChange={handleChange} required placeholder="e.g. Mumbai" />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label">To</label>
-              <input type="text" className="form-control" name="destination" value={formData.destination} onChange={handleChange} required placeholder="e.g. Paris" />
-            </div>
-          </div>
+      
+      {/* VIEW 1: START SCREEN */}
+      {view === 'start' && (
+        <div className="start-container text-center">
+          <h1 className="display-4 mb-4">Plan Your Dream Trip</h1>
+          <p className="lead mb-5">
+            Get a personalized day-by-day itinerary powered by AI. 
+            Just tell us where you want to go!
+          </p>
+          <button className="btn btn-primary btn-lg px-5" onClick={handleStartClick}>
+            Start Planning
+          </button>
+        </div>
+      )}
 
-          <div className="row mb-3">
-            <div className="col-md-6">
-              <label className="form-label">Start Date</label>
-              <input type="date" className="form-control" name="start_date" value={formData.start_date} onChange={handleChange} required />
-            </div>
-            <div className="col-md-6">
-              <label className="form-label">End Date</label>
-              <input type="date" className="form-control" name="end_date" value={formData.end_date} onChange={handleChange} required />
-            </div>
-          </div>
-
-          <div className="row mb-3">
-            <div className="col-md-4">
-              <label className="form-label">Adults</label>
-              <input type="number" className="form-control" name="adults" min="1" value={formData.adults} onChange={handleChange} />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label">Children</label>
-              <input type="number" className="form-control" name="children" min="0" value={formData.children} onChange={handleChange} />
-            </div>
-            <div className="col-md-4">
-              <label className="form-label">Budget</label>
-              <select className="form-select" name="budget" value={formData.budget} onChange={handleChange}>
-                <option value="low">Budget-Friendly</option>
-                <option value="mid">Mid-Range</option>
-                <option value="high">Luxury</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label">Interests</label>
-            <div className="d-flex gap-3 flex-wrap">
-              {["Adventure", "Culture", "Food", "Relaxation"].map((interest) => (
-                <div className="form-check" key={interest}>
-                  <input className="form-check-input" type="checkbox" value={interest} onChange={handleInterestChange} id={`check-${interest}`} />
-                  <label className="form-check-label" htmlFor={`check-${interest}`}>{interest}</label>
+      {/* VIEW 2: FORM SCREEN */}
+      {view === 'form' && (
+        <div className="form-container fade-in">
+          <h2 className="text-center mb-4">Trip Details</h2>
+          <form onSubmit={handleSubmit}>
+             {/* ... (Same form fields as before) ... */}
+             <div className="row mb-3">
+                <div className="col-md-6">
+                  <label className="form-label">From</label>
+                  <input type="text" className="form-control" name="source" value={formData.source} onChange={handleChange} required placeholder="e.g. Mumbai" />
                 </div>
-              ))}
+                <div className="col-md-6">
+                  <label className="form-label">To</label>
+                  <input type="text" className="form-control" name="destination" value={formData.destination} onChange={handleChange} required placeholder="e.g. Paris" />
+                </div>
+              </div>
+
+              <div className="row mb-3">
+                <div className="col-md-6">
+                  <label className="form-label">Start Date</label>
+                  <input type="date" className="form-control" name="start_date" value={formData.start_date} onChange={handleChange} required />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">End Date</label>
+                  <input type="date" className="form-control" name="end_date" value={formData.end_date} onChange={handleChange} required />
+                </div>
+              </div>
+
+              <div className="row mb-3">
+                <div className="col-md-4">
+                  <label className="form-label">Adults</label>
+                  <input type="number" className="form-control" name="adults" min="1" value={formData.adults} onChange={handleChange} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Children</label>
+                  <input type="number" className="form-control" name="children" min="0" value={formData.children} onChange={handleChange} />
+                </div>
+                <div className="col-md-4">
+                  <label className="form-label">Budget</label>
+                  <select className="form-select" name="budget" value={formData.budget} onChange={handleChange}>
+                    <option value="low">Budget-Friendly</option>
+                    <option value="mid">Mid-Range</option>
+                    <option value="high">Luxury</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label">Interests</label>
+                <div className="d-flex gap-3 flex-wrap">
+                  {["Adventure", "Culture", "Food", "Relaxation"].map((interest) => (
+                    <div className="form-check" key={interest}>
+                      <input className="form-check-input" type="checkbox" value={interest} onChange={handleInterestChange} id={`check-${interest}`} />
+                      <label className="form-check-label" htmlFor={`check-${interest}`}>{interest}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            <div className="text-center mt-4">
+              <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
+                {loading ? (
+                    <span><span className="spinner-border spinner-border-sm me-2"></span>Generating...</span>
+                ) : "Generate Itinerary"}
+              </button>
+              <button type="button" className="btn btn-link ms-3" onClick={() => setView('start')}>Cancel</button>
             </div>
-          </div>
+          </form>
+        </div>
+      )}
 
-          <div className="text-center">
-            <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
-              {loading ? "Generating..." : "Generate Itinerary"}
-            </button>
+      {/* VIEW 3: RESULT SCREEN (Itinerary Only) */}
+      {view === 'result' && result && (
+        <div className="result-container fade-in">
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h3>Your Trip to {formData.destination}</h3>
+            <button className="btn btn-outline-primary" onClick={handleReset}>Plan Another Trip</button>
           </div>
-        </form>
-      </div>
-
-      {/* --- RESULTS SECTION --- */}
-      {result && (
-        <div className="result-container mt-5">
-          <h3 className="text-center mb-4">Your Trip to {formData.destination}</h3>
           
-          {/* Removed Weather Section for now to prevent crashes */}
-          {/* Add it back here if you implement a separate weather API call */}
-
-          <div className="card">
+          <div className="card shadow-sm">
             <div className="card-body itinerary-body">
-              {/* Render the HTML directly */}
+              {/* The Form is GONE. Only the itinerary is here. */}
               <div dangerouslySetInnerHTML={{ __html: result.plan_html }} />
             </div>
           </div>
+          
+          <div className="text-center mt-4">
+             <button className="btn btn-primary btn-lg" onClick={() => window.print()}>Print Itinerary</button>
+          </div>
         </div>
       )}
+
     </div>
   );
 };
 
 export default Generate;
-
-*/
