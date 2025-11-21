@@ -26,7 +26,7 @@ export const generateItinerary = async (formData) => {
       5. Do not include <html>, <head>, or <body> tags. Just the content divs.
     `;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flask" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let text = response.text();
