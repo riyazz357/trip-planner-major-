@@ -7,68 +7,46 @@ import requests
 import bcrypt
 import mistune
 import numpy as np
+import traceback # Added for detailed error logging
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import bard # Imports your logic from above
 
+# Import your AI logic
+import bard 
+
+# --- 1. Configuration & Setup ---
 load_dotenv()
 WEATHER_API_KEY = os.environ.get("WEATHER_API_KEY")
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}) # Allow React to connect
+# Enable CORS for all domains (easiest for debugging)
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 app.secret_key = SECRET_KEY or "dev_secret_key"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# --- LAZY LOADING FOR CHATBOT (Prevents Memory Crash) ---
-chat_resources = None
-def load_chat_resources():
-    global chat_resources
-    if chat_resources: return chat_resources
-    
-    print("⏳ Loading AI Models...")
-    import nltk
-    from nltk.stem import WordNetLemmatizer
-    from tensorflow import keras
-    
-    # Download NLTK data
-    for res in ['punkt', 'punkt_tab', 'wordnet', 'omw-1.4']:
-        try: nltk.data.find(f'tokenizers/{res}' if 'punkt' in res else f'corpora/{res}')
-        except LookupError: nltk.download(res)
+# --- 2. Global Variables for Lazy Loading ---
+chat_model = None
+words = None
+classes = None
+knowledge_base = None
+lemmatizer = None
 
-    chat_resources = {
-        'model': keras.models.load_model('chat_model.h5'),
-        'words': pickle.load(open('words.pickle', 'rb')),
-        'classes': pickle.load(open('classes.pickle', 'rb')),
-        'lemmatizer': WordNetLemmatizer()
-    }
-    
-    # Load Knowledge Base
-    kb = []
-    kb.extend(json.load(open('intents.json'))['intents'])
-    for item in json.load(open('csv.json')):
-        kb.append({
-            "tag": item['cleaned_query'].lower().replace(' ', '_') + "_info",
-            "patterns": [item['cleaned_query']],
-            "responses": [item['response']]
-        })
-    chat_resources['kb'] = kb
-    return chat_resources
-
-# --- User Model ---
+# --- 3. Database Models ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80), nullable=False)
+    name = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
     bio = db.Column(db.String(200))
 
-    def __init__(self, name, email, password, bio=""):
+    def __init__(self, name, email, password, bio=None):
         self.name = name
         self.email = email
         self.bio = bio
@@ -80,104 +58,277 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
-# --- HELPER: Weather ---
-def get_weather_data(location, start, end):
-    if not WEATHER_API_KEY: return None
-    url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location}/{start}/{end}?unitGroup=metric&include=days&key={WEATHER_API_KEY}&contentType=json"
+# --- 4. Helper Functions ---
+
+# Weather Helper
+def get_weather_data(api_key, location, start_date, end_date):
+    if not api_key:
+        print("⚠️ Weather API Key missing")
+        return None
+    base_url = f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/{location}/{start_date}/{end_date}?unitGroup=metric&include=days&key={api_key}&contentType=json"
     try:
-        return requests.get(url, timeout=15).json()
-    except:
+        print(f"☁️ Fetching weather for {location}...")
+        response = requests.get(base_url, timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"❌ Weather API Error: {e}")
         return None
 
-# ================= API ROUTES =================
-
-# 1. ITINERARY GENERATION (React JSON API)
-@app.route('/generate_itinerary', methods=['POST'])
-def generate_itinerary_api():
-    data = request.get_json()
+# Lazy Load Chatbot Resources
+def load_chatbot_resources():
+    global chat_model, words, classes, knowledge_base, lemmatizer
     
-    # Get all fields
-    source = data.get("source")
-    destination = data.get("destination")
-    start_date = data.get("start_date")
-    end_date = data.get("end_date")
-    budget = data.get("budget")
-    interests = data.get("interests", [])
+    if chat_model is not None:
+        return
+
+    print("⏳ Loading Chatbot AI models (TensorFlow & NLTK)...")
+    
+    import nltk
+    from nltk.stem import WordNetLemmatizer
+    from tensorflow import keras
+
+    # Ensure NLTK data exists
+    try:
+        nltk.data.find('tokenizers/punkt')
+        nltk.data.find('tokenizers/punkt_tab')
+        nltk.data.find('corpora/wordnet')
+        nltk.data.find('corpora/omw-1.4')
+    except LookupError:
+        print("⬇️ Downloading missing NLTK data...")
+        nltk.download('punkt')
+        nltk.download('punkt_tab')
+        nltk.download('wordnet')
+        nltk.download('omw-1.4')
+
+    lemmatizer = WordNetLemmatizer()
     
     try:
-        adults = int(data.get("adults", 1))
-        children = int(data.get("children", 0))
-    except:
-        adults, children = 1, 0
+        chat_model = keras.models.load_model('chat_model.h5')
+        with open('words.pickle', 'rb') as f:
+            words = pickle.load(f)
+        with open('classes.pickle', 'rb') as f:
+            classes = pickle.load(f)
+        
+        knowledge_base = []
+        with open('intents.json') as file:
+            knowledge_base.extend(json.load(file)['intents'])
+        with open('csv.json') as file:
+            for item in json.load(file):
+                knowledge_base.append({
+                    "tag": item['cleaned_query'].lower().replace(' ', '_') + "_info",
+                    "patterns": [item['cleaned_query']],
+                    "responses": [item['response']]
+                })
+        print("✅ Chatbot resources loaded successfully!")
+    except Exception as e:
+        print(f"❌ Error loading chatbot files: {e}")
 
-    # Get Weather
-    weather = get_weather_data(destination, start_date, end_date) or {"days": []}
 
-    # Generate Plan
-    markdown_plan = bard.generate_itinerary(
-        source, destination, start_date, end_date, 
-        adults, children, budget, interests
-    )
+# ==========================================
+#               API ROUTES
+# ==========================================
+
+# --- 1. Itinerary Generation Route (With Debug Logs) ---
+@app.route('/generate_itinerary', methods=['POST'])
+def generate_itinerary_api():
+    print("🟢 RECEIVED REQUEST: /generate_itinerary")
     
-    return jsonify({
-        "status": "success",
-        "plan_html": mistune.html(markdown_plan), # Convert to HTML for React
-        "weather_data": weather
-    })
+    try:
+        data = request.get_json()
+        print(f"📝 Request Data: {data}")
 
-# 2. CHATBOT (Uses Lazy Loading)
+        source = data.get("source")
+        destination = data.get("destination")
+        start_date = data.get("start_date")
+        end_date = data.get("end_date")
+        budget = data.get("budget")
+        interests = data.get("interests", [])
+        
+        try:
+            adults = int(data.get("adults", 1))
+            children = int(data.get("children", 0))
+        except:
+            adults = 1
+            children = 0
+
+        if not all([source, destination, start_date, end_date]):
+            print("❌ Validation Failed: Missing required fields")
+            return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+        # Date Validation
+        try:
+            start_dt = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.datetime.strptime(end_date, "%Y-%m-%d")
+            if end_dt < start_dt:
+                return jsonify({"status": "error", "message": "Return date cannot be before start date"}), 400
+        except ValueError:
+            return jsonify({"status": "error", "message": "Invalid date format"}), 400
+
+        # Get Weather
+        print("⏳ Calling Weather API...")
+        weather_data = get_weather_data(WEATHER_API_KEY, destination, start_date, end_date)
+        if not weather_data:
+            print("⚠️ Weather data failed, using empty fallback.")
+            weather_data = {"resolvedAddress": destination, "days": []}
+        else:
+            print("✅ Weather API Success")
+
+        # Generate Itinerary using Bard/Gemini
+        print("⏳ Calling Gemini API (bard.py)...")
+        plan_markdown = bard.generate_itinerary(
+            source=source,
+            destination=destination,
+            start_date=start_date,
+            end_date=end_date,
+            adults=adults,
+            children=children,
+            budget=budget,
+            interests=interests
+        )
+        print(f"✅ Gemini API Response Received (Length: {len(plan_markdown)})")
+        
+        # Convert markdown to HTML
+        plan_html = mistune.html(plan_markdown)
+
+        return jsonify({
+            "status": "success",
+            "plan_html": plan_html,
+            "weather_data": weather_data
+        })
+
+    except Exception as e:
+        print(f"🔴 CRITICAL ERROR in /generate_itinerary: {e}")
+        # Print the full traceback to logs so we know EXACTLY where it crashed
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": f"Server Error: {str(e)}"}), 500
+
+
+# --- 2. Chatbot Route ---
 @app.route('/chat', methods=['POST'])
 def chat():
-    res = load_chat_resources()
-    msg = request.get_json().get("message", "")
+    # Load resources only when chat is used
+    load_chatbot_resources()
     
-    # Prediction logic
-    import nltk # Import locally to use loaded lemmatizer
-    sentence_words = nltk.word_tokenize(msg)
-    sentence_words = [res['lemmatizer'].lemmatize(w.lower()) for w in sentence_words]
-    
-    bag = [1 if w in sentence_words else 0 for w in res['words']]
-    pred = res['model'].predict(np.array([bag]), verbose=0)[0]
-    
-    # Filter results
-    results = [[i, r] for i, r in enumerate(pred) if r > 0.25]
-    results.sort(key=lambda x: x[1], reverse=True)
-    
-    tag = res['classes'][results[0][0]] if results else None
-    response = "I'm not sure I understand."
+    if not chat_model:
+        return jsonify({"reply": "Chatbot is initializing or failed to load. Please check server logs."})
 
-    if tag:
-        if tag == 'destination_recommendation':
-            response = bard.get_chat_recommendations(msg)
-        else:
-            for i in res['kb']:
-                if i['tag'] == tag:
-                    response = random.choice(i['responses'])
-                    break
-                    
-    return jsonify({"reply": response})
+    data = request.get_json()
+    user_message = data.get("message")
+    
+    if not user_message:
+        return jsonify({"reply": "Please send a message."})
 
-# 3. AUTH ROUTES
+    # Local Helper Functions to access loaded resources
+    import nltk
+    def clean_up_sentence(sentence):
+        sentence_words = nltk.word_tokenize(sentence)
+        sentence_words = [lemmatizer.lemmatize(word.lower()) for word in sentence_words]
+        return sentence_words
+
+    def bag_of_words(sentence, words):
+        sentence_words = clean_up_sentence(sentence)
+        bag = [0] * len(words)
+        for s in sentence_words:
+            for i, w in enumerate(words):
+                if w == s:
+                    bag[i] = 1
+        return np.array(bag)
+
+    # Predict
+    try:
+        bow = bag_of_words(user_message, words)
+        res = chat_model.predict(np.array([bow]), verbose=0)[0]
+        
+        ERROR_THRESHOLD = 0.25
+        results = [[i, r] for i, r in enumerate(res) if r > ERROR_THRESHOLD]
+        results.sort(key=lambda x: x[1], reverse=True)
+        
+        predicted_tag = classes[results[0][0]] if results else None
+        bot_response = ""
+
+        if predicted_tag:
+            if predicted_tag == 'destination_recommendation':
+                 try:
+                     bot_response = bard.get_chat_recommendations(user_message)
+                 except AttributeError:
+                     bot_response = "I recommend visiting the city center!"
+            else:
+                for intent in knowledge_base:
+                    if intent['tag'] == predicted_tag:
+                        bot_response = random.choice(intent['responses'])
+                        break
+        
+        if not bot_response:
+            bot_response = "Sorry, I don't quite understand. Could you please rephrase?"
+
+        return jsonify({"reply": bot_response})
+        
+    except Exception as e:
+        print(f"Chatbot Error: {e}")
+        return jsonify({"reply": "I'm having a brain freeze. Please try again."})
+
+
+# --- 3. Auth Routes ---
 @app.route("/api/users/register", methods=["POST"])
 def register():
-    data = request.get_json()
-    if User.query.filter_by(email=data['email']).first():
-        return jsonify({"message": "User exists"}), 400
-    
-    new_user = User(data['name'], data['email'], data['password'], data.get('bio'))
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({"id": new_user.id, "name": new_user.name}), 201
+    try:
+        data = request.get_json()
+        name = data.get("name")
+        email = data.get("email")
+        password = data.get("password")
+        bio = data.get("bio", "")
+
+        if not all([name, email, password]):
+            return jsonify({"message": "Please fill all fields"}), 400
+
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({"message": "User already exists"}), 400
+
+        new_user = User(name=name, email=email, password=password, bio=bio)
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({
+            "id": new_user.id,
+            "name": new_user.name,
+            "email": new_user.email,
+            "bio": new_user.bio
+        }), 201
+    except Exception as e:
+        print(f"Register Error: {e}")
+        return jsonify({"message": "Server Error"}), 500
 
 @app.route("/api/users/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    user = User.query.filter_by(email=data['email']).first()
-    if user and user.check_password(data['password']):
-        session['user_id'] = user.id
-        return jsonify({"id": user.id, "name": user.name, "email": user.email}), 200
-    return jsonify({"message": "Invalid credentials"}), 401
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        password = data.get("password")
 
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            session["user_id"] = user.id
+            return jsonify({
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "bio": user.bio
+            }), 200
+        else:
+            return jsonify({"message": "Invalid credentials"}), 401
+    except Exception as e:
+        print(f"Login Error: {e}")
+        return jsonify({"message": "Server Error"}), 500
+
+@app.route("/api/users/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"message": "Logged out successfully"}), 200
+
+
+# --- Server Start ---
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5002))
+    # Use Render's PORT environment variable
+    port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
