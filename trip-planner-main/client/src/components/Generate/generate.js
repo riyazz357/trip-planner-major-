@@ -241,6 +241,9 @@ const Generate = () => {
 
 export default Generate;
 */
+
+/*
+working one
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import { generateItinerary } from "../../services/gemini"; // Ensure this path is correct
@@ -388,3 +391,5 @@ const Generate = () => {
 };
 
 export default Generate;
+
+*/
