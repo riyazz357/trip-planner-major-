@@ -26,7 +26,10 @@ const Profile = () => {
     if (!user) {
       navigate("/login");
     }
-    dispatch(getBucketList());
+    // Only dispatch if user exists to avoid unnecessary errors
+    if (user) {
+      dispatch(getBucketList());
+    }
   }, [user, navigate, dispatch]);
 
   return (
@@ -47,10 +50,14 @@ const Profile = () => {
       <div className="container bucket-list">
         <h5>Bucket List</h5>
         <div className="list">
-          {bucketList.length > 0 ? (
-            bucketList.map((list) => <BucketList place={list} key={list._id} />)
+          {/* --- FIX IS HERE: Check if it is an Array first --- */}
+          {bucketList && Array.isArray(bucketList) && bucketList.length > 0 ? (
+            bucketList.map((list) => (
+              // Added optional chaining to key to be safe
+              <BucketList place={list} key={list._id || list.id || Math.random()} />
+            ))
           ) : (
-            <h6>Nothing to show yet. Please add some destinations !</h6>
+            <h6>Nothing to show yet. Please add some destinations!</h6>
           )}
         </div>
       </div>
