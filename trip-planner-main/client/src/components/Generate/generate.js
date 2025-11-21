@@ -396,24 +396,28 @@ export default Generate;
 //  '''
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import ReactQuill from 'react-quill'; // 1. Import Editor
+import 'react-quill/dist/quill.snow.css'; // 1. Import Editor Styles
 import { generateItinerary } from "../../services/gemini";
-import { getWeather } from "../../services/weather"; // Import new weather service
+import { getWeather } from "../../services/weather";
 import "react-toastify/dist/ReactToastify.css";
 import "./generate.scss"; 
 
 const Generate = () => {
   const [view, setView] = useState('start'); 
+  
+  // This state will hold the Editable HTML content
+  const [editableContent, setEditableContent] = useState(""); 
+  
   const [formData, setFormData] = useState({
     source: "", destination: "", start_date: "", end_date: "",
     adults: 1, children: 0, budget: "mid", interests: [],
   });
-  const [result, setResult] = useState(null);
+  const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // ... (Keep handleChange, handleInterestChange, handleStartClick, handleReset exactly as before) ...
-  // (I am omitting them here to save space, but don't delete them!)
-  
-  // Re-add these handlers if you copy-pasted this block:
+  // ... (Keep handleChange, handleInterestChange, handleStartClick, handleReset) ...
+  // (Re-paste them from previous code if needed)
   const handleChange = (e) => {
       const { name, value } = e.target;
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -426,26 +430,21 @@ const Generate = () => {
     });
   };
   const handleStartClick = () => setView('form');
-  const handleReset = () => { setResult(null); setView('start'); };
+  const handleReset = () => { setView('start'); setEditableContent(""); setWeatherData(null); };
 
-
-  // --- UPDATED SUBMIT HANDLER ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      // 1. Run both API calls in parallel for speed
-      const [itineraryHtml, weatherData] = await Promise.all([
+      const [itineraryHtml, weather] = await Promise.all([
         generateItinerary(formData),
         getWeather(formData.destination, formData.start_date, formData.end_date)
       ]);
       
-      // 2. Store both results
-      setResult({ 
-        plan_html: itineraryHtml, 
-        weather_data: weatherData 
-      });
+      // 2. Set the content into the Editor State
+      setEditableContent(itineraryHtml);
+      setWeatherData(weather);
       
       setView('result');
       toast.success("Trip planned successfully!");
@@ -458,10 +457,15 @@ const Generate = () => {
     }
   };
 
+  // Function to handle saving the edited plan (e.g., print or save to DB later)
+  const handleSaveOrPrint = () => {
+      window.print();
+  };
+
   return (
     <div className="container generate-page">
       
-      {/* VIEW 1 & 2 (Start & Form) remain exactly the same... */}
+      {/* VIEW 1 & 2 (Start & Form) - SAME AS BEFORE */}
       {view === 'start' && (
           <div className="start-container text-center">
             <h1 className="display-4 mb-4">Plan Your Dream Trip</h1>
@@ -472,12 +476,9 @@ const Generate = () => {
 
       {view === 'form' && (
         <div className="form-container fade-in">
-             {/* ... (Your existing form JSX goes here - no changes needed) ... */}
-             {/* COPY YOUR FORM CODE FROM PREVIOUS VERSION HERE */}
-             {/* Just ensure the form calls onSubmit={handleSubmit} */}
+             {/* ... (Keep your existing form code here exactly as is) ... */}
              <h2 className="text-center mb-4">Trip Details</h2>
              <form onSubmit={handleSubmit}>
-                 {/* ... inputs for source, destination, dates, etc ... */}
                  <div className="row mb-3">
                     <div className="col-md-6">
                     <label className="form-label">From</label>
@@ -498,7 +499,35 @@ const Generate = () => {
                     <input type="date" className="form-control" name="end_date" value={formData.end_date} onChange={handleChange} required />
                     </div>
                 </div>
-                 {/* ... adults, children, budget, interests ... */}
+                 <div className="row mb-3">
+                    <div className="col-md-4">
+                    <label className="form-label">Adults</label>
+                    <input type="number" className="form-control" name="adults" min="1" value={formData.adults} onChange={handleChange} />
+                    </div>
+                    <div className="col-md-4">
+                    <label className="form-label">Children</label>
+                    <input type="number" className="form-control" name="children" min="0" value={formData.children} onChange={handleChange} />
+                    </div>
+                    <div className="col-md-4">
+                    <label className="form-label">Budget</label>
+                    <select className="form-select" name="budget" value={formData.budget} onChange={handleChange}>
+                        <option value="low">Budget-Friendly</option>
+                        <option value="mid">Mid-Range</option>
+                        <option value="high">Luxury</option>
+                    </select>
+                    </div>
+                </div>
+                <div className="mb-3">
+                    <label className="form-label">Interests</label>
+                    <div className="d-flex gap-3 flex-wrap">
+                    {["Adventure", "Culture", "Food", "Relaxation"].map((interest) => (
+                        <div className="form-check" key={interest}>
+                        <input className="form-check-input" type="checkbox" value={interest} onChange={handleInterestChange} id={`check-${interest}`} />
+                        <label className="form-check-label" htmlFor={`check-${interest}`}>{interest}</label>
+                        </div>
+                    ))}
+                    </div>
+                </div>
                  <div className="text-center mt-4">
                     <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
                         {loading ? "Generating..." : "Generate Itinerary"}
@@ -509,23 +538,23 @@ const Generate = () => {
       )}
 
 
-      {/* VIEW 3: RESULT SCREEN (Updated with Weather) */}
-      {view === 'result' && result && (
+      {/* VIEW 3: RESULT SCREEN (Editable) */}
+      {view === 'result' && (
         <div className="result-container fade-in">
           <div className="d-flex justify-content-between align-items-center mb-4">
             <h3>Your Trip to {formData.destination}</h3>
             <button className="btn btn-outline-primary" onClick={handleReset}>Plan Another Trip</button>
           </div>
           
-          {/* --- NEW WEATHER SECTION --- */}
-          {result.weather_data && result.weather_data.days && (
+          {/* Weather Section */}
+          {weatherData && weatherData.days && (
             <div className="card mb-4 shadow-sm">
               <div className="card-header bg-info text-white">
                 <h5 className="mb-0">Weather Forecast</h5>
               </div>
               <div className="card-body">
                 <div className="d-flex flex-row overflow-auto pb-2" style={{ gap: '15px' }}>
-                  {result.weather_data.days.slice(0, 5).map((day, index) => (
+                  {weatherData.days.slice(0, 5).map((day, index) => (
                     <div key={index} className="text-center p-2 border rounded" style={{ minWidth: '120px', background: '#f8f9fa' }}>
                       <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{day.datetime}</div>
                       <div className="my-2" style={{ fontSize: '1.5rem' }}>{Math.round(day.tempmax)}°C</div>
@@ -537,15 +566,31 @@ const Generate = () => {
             </div>
           )}
 
-          {/* Itinerary Content */}
+          {/* --- EDITABLE ITINERARY SECTION --- */}
           <div className="card shadow-sm">
-            <div className="card-body itinerary-body">
-              <div dangerouslySetInnerHTML={{ __html: result.plan_html }} />
+            <div className="card-header bg-white">
+                <h5 className="mb-0">Itinerary & Expenses (Editable)</h5>
+            </div>
+            <div className="card-body p-0">
+              {/* React Quill Editor */}
+              <ReactQuill 
+                theme="snow" 
+                value={editableContent} 
+                onChange={setEditableContent}
+                modules={{
+                    toolbar: [
+                        [{ 'header': [1, 2, false] }],
+                        ['bold', 'italic', 'underline'],
+                        [{'list': 'ordered'}, {'list': 'bullet'}],
+                        ['clean']
+                    ],
+                }}
+              />
             </div>
           </div>
           
           <div className="text-center mt-4">
-             <button className="btn btn-primary btn-lg" onClick={() => window.print()}>Print Itinerary</button>
+             <button className="btn btn-success btn-lg" onClick={handleSaveOrPrint}>Print / Save as PDF</button>
           </div>
         </div>
       )}

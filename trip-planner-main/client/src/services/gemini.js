@@ -1,7 +1,5 @@
-// src/services/gemini.js
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Ideally use an environment variable here
 const API_KEY = "AIzaSyCNomlpTnDJ2_yNjloTWDK5EevjRvJUTfg"; 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
@@ -19,19 +17,23 @@ export const generateItinerary = async (formData) => {
       Interests: ${formData.interests.join(', ')}.
       
       CRITICAL FORMATTING INSTRUCTIONS:
-      1. Return ONLY valid HTML code. 
-      2. Do NOT wrap the output in markdown code blocks (like '''html or ''').
-      3. Use <h2> for Day titles, <ul> for lists, and <strong> for emphasis.
-      4. Use Bootstrap classes if possible (e.g., class="mb-3").
-      5. Do not include <html>, <head>, or <body> tags. Just the content divs.
+      1. Return ONLY valid HTML code. Do NOT use markdown blocks.
+      2. Use <h2> for Day titles (e.g., "Day 1: Arrival").
+      3. Use <ul> for activity lists.
+      4. Use <strong> for emphasis.
+      
+      EXPENSES SECTION:
+      At the very end, create a separate section titled "<h2>Estimated Expenses (INR)</h2>".
+      Create an HTML <table> with the following columns: Category (Food, Transport, Activities, Misc), Estimated Daily Cost, and Total Trip Cost.
+      Sum it up at the bottom.
     `;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genai.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let text = response.text();
     
-    // CLEANUP: Just in case the AI still adds markdown blocks, remove them manually
+    // Cleanup markdown if present
     text = text.replace(/```html/g, '').replace(/```/g, '');
     
     return text;
