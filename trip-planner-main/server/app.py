@@ -9,17 +9,16 @@ from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-# Import your AI logic
-
 # --- 1. Configuration & Setup ---
 load_dotenv()
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 app = Flask(__name__)
-# Enable CORS for all domains
+# Enable CORS for all domains so your React frontend can connect
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- 2. Global Variables for Lazy Loading ---
+# We initialize these as None and load them only when the first request comes in.
 chat_model = None
 words = None
 classes = None
@@ -28,19 +27,19 @@ lemmatizer = None
 
 # --- 3. Helper Functions ---
 
-# Lazy Load Chatbot Resources
 def load_chatbot_resources():
+    """Loads the heavy AI model and data files only when needed."""
     global chat_model, words, classes, knowledge_base, lemmatizer
     
     if chat_model is not None:
         return
 
-    print("⏳ Loading Chatbot AI models (TensorFlow & NLTK)...")
+    print("⏳ Loading Local Chatbot AI models...")
     
     from nltk.stem import WordNetLemmatizer
     from tensorflow import keras
 
-    # Ensure NLTK data exists
+    # Ensure NLTK data exists (Required for Render)
     try:
         nltk.data.find('tokenizers/punkt')
         nltk.data.find('tokenizers/punkt_tab')
@@ -56,14 +55,16 @@ def load_chatbot_resources():
     lemmatizer = WordNetLemmatizer()
     
     try:
+        # Load the trained model and helper files
+        # Ensure these files are present in your project folder!
         chat_model = keras.models.load_model('chat_model.h5')
         with open('words.pickle', 'rb') as f:
             words = pickle.load(f)
         with open('classes.pickle', 'rb') as f:
             classes = pickle.load(f)
         
+        # Load Knowledge Base (Combine intents and csv data)
         knowledge_base = []
-        # Load Knowledge Base
         try:
             with open('intents.json') as file:
                 knowledge_base.extend(json.load(file)['intents'])
@@ -73,6 +74,7 @@ def load_chatbot_resources():
         try:
             with open('csv.json') as file:
                 for item in json.load(file):
+                    # We create tags for CSV items like 'paris_info' to match prediction logic
                     knowledge_base.append({
                         "tag": item['cleaned_query'].lower().replace(' ', '_') + "_info",
                         "patterns": [item['cleaned_query']],
@@ -93,7 +95,7 @@ def load_chatbot_resources():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    # Load resources only when chat is used
+    # 1. Load resources (only happens on the first request)
     load_chatbot_resources()
     
     if not chat_model:
@@ -105,7 +107,8 @@ def chat():
     if not user_message:
         return jsonify({"reply": "Please send a message."})
 
-    # Local Helper Functions
+    # 2. Define Prediction Helper Functions (Locally to use loaded modules)
+    import nltk
     def clean_up_sentence(sentence):
         sentence_words = nltk.word_tokenize(sentence)
         sentence_words = [lemmatizer.lemmatize(word.lower()) for word in sentence_words]
@@ -120,34 +123,32 @@ def chat():
                     bag[i] = 1
         return np.array(bag)
 
-    # Predict
     try:
+        # 3. Convert message to numbers (Bag of Words)
         bow = bag_of_words(user_message, words)
+        
+        # 4. Get Prediction from Model
         res = chat_model.predict(np.array([bow]), verbose=0)[0]
         
+        # 5. Filter out low-confidence results
         ERROR_THRESHOLD = 0.25
         results = [[i, r] for i, r in enumerate(res) if r > ERROR_THRESHOLD]
+        # Sort by strength of probability
         results.sort(key=lambda x: x[1], reverse=True)
         
         predicted_tag = classes[results[0][0]] if results else None
         bot_response = ""
 
+        # 6. Find response in local knowledge base
         if predicted_tag:
-            # If the AI predicts the user wants a recommendation, use Google Gemini
-            if predicted_tag == 'destination_recommendation':
-                 try:
-                     bot_response = bard.get_chat_recommendations(user_message)
-                 except AttributeError:
-                     bot_response = "I recommend visiting the city center!"
-            else:
-                # Otherwise, check the local files
-                for intent in knowledge_base:
-                    if intent['tag'] == predicted_tag:
-                        bot_response = random.choice(intent['responses'])
-                        break
+            for intent in knowledge_base:
+                if intent['tag'] == predicted_tag:
+                    bot_response = random.choice(intent['responses'])
+                    break
         
+        # 7. Fallback if no response found
         if not bot_response:
-            bot_response = "Sorry, I don't quite understand. Could you please rephrase?"
+            bot_response = "Sorry, I don't have information on that yet. Try asking about a specific city I know."
 
         return jsonify({"reply": bot_response})
         
@@ -157,7 +158,7 @@ def chat():
         return jsonify({"reply": "I'm having a brain freeze. Please try again."})
 
 
-# --- Server Start ---
 if __name__ == "__main__":
+    # Render sets the PORT environment variable
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
