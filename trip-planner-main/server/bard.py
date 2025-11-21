@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import google.generativeai as genai
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
 # Load environment variables
 load_dotenv()
@@ -10,17 +11,13 @@ load_dotenv()
 # Prefer the official GOOGLE_API_KEY
 _api_key = os.environ.get("GOOGLE_API_KEY")
 
-# Configure if available; otherwise we'll handle gracefully at call time
+# Configure if available
 if _api_key:
     genai.configure(api_key=_api_key)
 
 def generate_itinerary(source: str, destination: str, start_date: str, end_date: str, 
                        adults: int, children: int, budget: str, interests: list) -> str:
-    """Generate a travel itinerary using Google's Gemini model.
-
-    Returns markdown formatted text suitable for rendering on the dashboard.
-    Raises exceptions on failure so the caller knows something went wrong.
-    """
+    """Generate a travel itinerary using Google's Gemini model (v1 API)."""
 
     # --- 1. Calculate Days ---
     try:
@@ -31,14 +28,11 @@ def generate_itinerary(source: str, destination: str, start_date: str, end_date:
         if no_of_days <= 0:
             raise ValueError("Return date must be after the travel date.")
     except ValueError as e:
-        # Re-raise value errors about dates
         raise ValueError(f"Invalid date format or range: {e}")
 
     # --- 2. Build Prompt ---
-    # Map budget to descriptive terms
     budget_map = {"low": "budget-friendly", "mid": "moderate/mid-range", "high": "luxury"}
     budget_desc = budget_map.get(budget, "standard")
-    
     interests_str = ", ".join(interests) if interests else "general sightseeing"
 
     prompt = (
@@ -62,24 +56,38 @@ def generate_itinerary(source: str, destination: str, start_date: str, end_date:
     if not _api_key:
         raise EnvironmentError("Missing Google API Key in environment variables.")
 
-    # --- 4. Call AI Model ---
+    # --- 4. Call AI Model (FORCED CONFIGURATION) ---
     try:
-        # Use a stable model version
-        model = genai.GenerativeModel("gemini-pro")
+        # Explicitly set generation config to avoid defaults
+        generation_config = {
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "top_k": 64,
+            "max_output_tokens": 8192,
+        }
+
+        # Use the most stable model available globally
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config=generation_config
+        )
         
         response = model.generate_content(prompt)
+        
+        # Check if response was blocked safely
+        if response.prompt_feedback and response.prompt_feedback.block_reason:
+            raise ValueError(f"Blocked by safety filter: {response.prompt_feedback.block_reason}")
+
         text = getattr(response, "text", "")
 
         if not text:
-            # Raise an error if the model returns nothing (e.g., safety filter blocks it)
             raise ValueError("Gemini API returned an empty response.")
             
         return text
 
     except Exception as exc:
-        # Log the detailed error for the developer
         logging.exception("Gemini itinerary generation failed: %s", exc)
-        # Re-raise the exception so app.py catches it and returns a 500 error
+        # Raise the exception so app.py catches it and logs the detailed error
         raise exc
 
 
@@ -97,12 +105,9 @@ def get_chat_recommendations(location: str) -> str:
         return "I'm sorry, but I can't access my AI brain right now (API Key missing)."
 
     try:
-        model = genai.GenerativeModel("gemini-pro")
+        model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
-        text = getattr(response, "text", "")
-        if not text: 
-            return "I couldn't think of a good answer right now. Ask me again!"
-        return text
+        return getattr(response, "text", "I'm sorry, I couldn't think of anything right now.")
     except Exception as exc:
         logging.exception("Gemini chat failed: %s", exc)
         return "I'm having trouble connecting to the server. Please try again later."
