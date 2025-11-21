@@ -97,7 +97,7 @@ def get_chat_recommendations(location: str) -> str:
         return "I'm sorry, but I can't access my AI brain right now (API Key missing)."
 
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash")
         response = model.generate_content(prompt)
         text = getattr(response, "text", "")
         if not text: 
