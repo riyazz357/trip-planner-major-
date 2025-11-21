@@ -242,13 +242,12 @@ const Generate = () => {
 export default Generate;
 */
 import React, { useState } from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
+import { generateItinerary } from "../../services/gemini"; // Ensure this path is correct
 import "react-toastify/dist/ReactToastify.css";
 import "./generate.scss"; 
 
 const Generate = () => {
-  // --- 1. State for Form Data ---
   const [formData, setFormData] = useState({
     source: "",
     destination: "",
@@ -263,7 +262,6 @@ const Generate = () => {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // --- 2. Input Handlers ---
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -280,96 +278,56 @@ const Generate = () => {
     });
   };
 
-  // --- 3. Submit to Backend ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setResult(null);
 
     try {
-      // FIX: Use the correct API endpoint, NOT the root URL
-      // Using the same backend URL that is working for your chatbot
-      const response = await axios.post(
-        "https://trip-planner-major.onrender.com/generate_itinerary", 
-        formData
-      );
-
-      if (response.data.status === "success") {
-        setResult(response.data);
-        toast.success("Itinerary generated successfully!");
-      } else {
-        toast.error(response.data.message || "Failed to generate.");
-      }
+      // 1. Call the Gemini Service directly
+      const itineraryHtml = await generateItinerary(formData);
+      
+      // 2. Set the result state with just the plan
+      setResult({ plan_html: itineraryHtml });
+      toast.success("Itinerary generated successfully!");
+      
     } catch (error) {
-      console.error("Error generating itinerary:", error);
-      toast.error("Failed to generate plan. Please try again.");
+      console.error("Generation Error:", error);
+      toast.error("Failed to generate plan. Please check your API Key.");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- 4. Render ---
   return (
     <div className="container generate-page">
       <div className="form-container">
         <h2 className="text-center mb-4">Plan Your Trip</h2>
         
         <form onSubmit={handleSubmit}>
-          {/* Source & Destination */}
+          {/* --- Form Fields (Same as before) --- */}
           <div className="row mb-3">
             <div className="col-md-6">
               <label className="form-label">From</label>
-              <input
-                type="text"
-                className="form-control"
-                name="source"
-                value={formData.source}
-                onChange={handleChange}
-                required
-                placeholder="e.g. Mumbai"
-              />
+              <input type="text" className="form-control" name="source" value={formData.source} onChange={handleChange} required placeholder="e.g. Mumbai" />
             </div>
             <div className="col-md-6">
               <label className="form-label">To</label>
-              <input
-                type="text"
-                className="form-control"
-                name="destination"
-                value={formData.destination}
-                onChange={handleChange}
-                required
-                placeholder="e.g. Paris"
-              />
+              <input type="text" className="form-control" name="destination" value={formData.destination} onChange={handleChange} required placeholder="e.g. Paris" />
             </div>
           </div>
 
-          {/* Dates */}
           <div className="row mb-3">
             <div className="col-md-6">
               <label className="form-label">Start Date</label>
-              <input
-                type="date"
-                className="form-control"
-                name="start_date"
-                value={formData.start_date}
-                onChange={handleChange}
-                required
-              />
+              <input type="date" className="form-control" name="start_date" value={formData.start_date} onChange={handleChange} required />
             </div>
             <div className="col-md-6">
               <label className="form-label">End Date</label>
-              <input
-                type="date"
-                className="form-control"
-                name="end_date"
-                value={formData.end_date}
-                onChange={handleChange}
-                required
-              />
+              <input type="date" className="form-control" name="end_date" value={formData.end_date} onChange={handleChange} required />
             </div>
           </div>
 
-          {/* Travelers & Budget */}
           <div className="row mb-3">
             <div className="col-md-4">
               <label className="form-label">Adults</label>
@@ -382,29 +340,20 @@ const Generate = () => {
             <div className="col-md-4">
               <label className="form-label">Budget</label>
               <select className="form-select" name="budget" value={formData.budget} onChange={handleChange}>
-                <option value="low">Budget</option>
+                <option value="low">Budget-Friendly</option>
                 <option value="mid">Mid-Range</option>
                 <option value="high">Luxury</option>
               </select>
             </div>
           </div>
 
-          {/* Interests */}
           <div className="mb-3">
             <label className="form-label">Interests</label>
             <div className="d-flex gap-3 flex-wrap">
               {["Adventure", "Culture", "Food", "Relaxation"].map((interest) => (
                 <div className="form-check" key={interest}>
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    value={interest}
-                    onChange={handleInterestChange}
-                    id={`check-${interest}`}
-                  />
-                  <label className="form-check-label" htmlFor={`check-${interest}`}>
-                    {interest}
-                  </label>
+                  <input className="form-check-input" type="checkbox" value={interest} onChange={handleInterestChange} id={`check-${interest}`} />
+                  <label className="form-check-label" htmlFor={`check-${interest}`}>{interest}</label>
                 </div>
               ))}
             </div>
@@ -423,27 +372,12 @@ const Generate = () => {
         <div className="result-container mt-5">
           <h3 className="text-center mb-4">Your Trip to {formData.destination}</h3>
           
-          {/* Weather Cards */}
-          {result.weather_data && result.weather_data.days && (
-            <div className="weather-section mb-4">
-              <h4>Weather Forecast</h4>
-              <div className="d-flex overflow-auto gap-3 pb-2">
-                {result.weather_data.days.slice(0, 5).map((day, index) => (
-                  <div key={index} className="card weather-card" style={{minWidth: '150px'}}>
-                    <div className="card-body text-center">
-                      <small>{day.datetime}</small>
-                      <h5 className="my-2">{day.tempmax}°C</h5>
-                      <small className="text-muted">{day.description}</small>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Removed Weather Section for now to prevent crashes */}
+          {/* Add it back here if you implement a separate weather API call */}
 
-          {/* Itinerary Content */}
           <div className="card">
             <div className="card-body itinerary-body">
+              {/* Render the HTML directly */}
               <div dangerouslySetInnerHTML={{ __html: result.plan_html }} />
             </div>
           </div>
