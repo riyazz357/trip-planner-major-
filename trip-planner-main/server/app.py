@@ -34,7 +34,7 @@ with open('csv.json') as file:
 
 # --- 2. Initialize Flask App ---
 app = Flask(__name__)
-CORS(app,resources={r"/*": {"origins": "*"}}) # Enable Cross-Origin Resource Sharing
+CORS(app,resources={r"/*": {"origins": "https://trip-planner-major.vercel.app"}}) # Enable Cross-Origin Resource Sharing
 
 # --- 3. Define Helper Functions ---
 def clean_up_sentence(sentence):
