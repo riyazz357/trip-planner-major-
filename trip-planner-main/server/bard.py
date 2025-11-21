@@ -65,7 +65,7 @@ def generate_itinerary(source: str, destination: str, start_date: str, end_date:
     # --- 4. Call AI Model ---
     try:
         # Use a stable model version
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-pro")
         
         response = model.generate_content(prompt)
         text = getattr(response, "text", "")
