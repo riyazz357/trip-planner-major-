@@ -211,7 +211,7 @@ import "./generate.scss";
 const Generate = () => {
   // Redirect to the specified URL when the button is clicked
   const handleRedirect = () => {
-    window.location.href = "http://127.0.0.1:5001/";
+    window.location.href = "https://ai-travel-itinerary-generator-wvuw.onrender.com";
   };
 
   return (
