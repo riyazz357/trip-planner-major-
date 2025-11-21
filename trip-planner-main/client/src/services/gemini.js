@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const API_KEY = "AIzaSyCNomlpTnDJ2_yNjloTWDK5EevjRvJUTfg"; 
-const genAI = new GoogleGenerativeAI(API_KEY);
+const genai = new GoogleGenerativeAI(API_KEY);
 
 export const generateItinerary = async (formData) => {
   try {
