@@ -1,3 +1,4 @@
+import os # Required for getting environment variables
 import json
 import pickle
 import random
@@ -10,9 +11,29 @@ from tensorflow import keras
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+# --- FIX: NLTK Download Logic (Crucial for Render) ---
+# This block checks if NLTK data exists; if not, it downloads it.
+# This runs once when the server starts.
+try:
+    nltk.data.find('tokenizers/punkt')
+    nltk.data.find('tokenizers/punkt_tab')
+    nltk.data.find('corpora/wordnet')
+    nltk.data.find('corpora/omw-1.4')
+except LookupError:
+    print("Downloading missing NLTK data...")
+    nltk.download('punkt')
+    nltk.download('punkt_tab')
+    nltk.download('wordnet')
+    nltk.download('omw-1.4')
+# -----------------------------------------------------
+
 # --- 1. Load All Necessary Files ---
 lemmatizer = WordNetLemmatizer()
+
+# Load the trained model
+# Make sure chat_model.h5 is in the same folder or committed to GitHub
 model = keras.models.load_model('chat_model.h5')
+
 with open('words.pickle', 'rb') as f:
     words = pickle.load(f)
 with open('classes.pickle', 'rb') as f:
@@ -34,7 +55,8 @@ with open('csv.json') as file:
 
 # --- 2. Initialize Flask App ---
 app = Flask(__name__)
-CORS(app,resources={r"/*": {"origins": "*"}}) # Enable Cross-Origin Resource Sharing
+# Allow CORS for all origins to ensure frontend can connect
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # --- 3. Define Helper Functions ---
 def clean_up_sentence(sentence):
@@ -62,7 +84,7 @@ def extract_location(user_message):
 
 def get_weather_data(location):
     """Calls the OpenWeather API."""
-    api_key ="e2afbed5bf2ffd9aca5013ae32592340" # Make sure to set this in .env
+    api_key ="e2afbed5bf2ffd9aca5013ae32592340" # Ideally, use os.environ.get("OPENWEATHER_API_KEY")
     if not api_key: return "Weather API key not configured."
     url = f"http://api.openweathermap.org/data/2.5/weather?q={location}&appid={api_key}&units=metric"
     try:
@@ -87,8 +109,8 @@ def predict_class(sentence):
         return classes[results[0][0]]
     return None
 
+
 # --- 4. Create the /chat API Endpoint ---
-# In app.py, replace your old @app.route('/chat') with this one
 @app.after_request
 def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
@@ -129,6 +151,8 @@ def chat():
         bot_response = "Sorry, I don't quite understand. Could you please rephrase?"
 
     return jsonify({"reply": bot_response})
+
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000)) # Default to 10000 for Render
+    # Use the PORT environment variable provided by Render
+    port = int(os.environ.get("PORT", 10000)) 
     app.run(host='0.0.0.0', port=port)
