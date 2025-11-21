@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ⚠️ IMPORTANT: Put your actual API Key here for now to get it working.
 // Later, you can move it to a .env file (REACT_APP_GOOGLE_API_KEY).
-const API_KEY = "GOOGLE_API_KEY"; 
+const API_KEY = "AIzaSyCNomlpTnDJ2_yNjloTWDK5EevjRvJUTfg"; 
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
