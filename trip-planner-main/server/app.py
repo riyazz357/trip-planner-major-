@@ -10,7 +10,6 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # Import your AI logic
-import bard 
 
 # --- 1. Configuration & Setup ---
 load_dotenv()
