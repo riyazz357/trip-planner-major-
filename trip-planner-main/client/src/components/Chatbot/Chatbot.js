@@ -140,7 +140,7 @@ const Chatbot = () => {
     setInput('');
 
     try {
-      const response = await axios.post('http://localhost:5002/chat', {
+      const response = await axios.post('https://trip-planner-major.onrender.com/chat', {
         message: input,
       });
 
