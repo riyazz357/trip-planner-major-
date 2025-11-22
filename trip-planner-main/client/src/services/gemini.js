@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ⚠️ Ideally, move this to an environment variable (process.env.REACT_APP_GEMINI_KEY)
-const API_KEY = "AIzaSyCNomlpTnDJ2_yNjloTWDK5EevjRvJUTfg"; 
+const API_KEY = process.env.GOOGLE_API_KEY; 
 const genai = new GoogleGenerativeAI(API_KEY);
 
 export const generateItinerary = async (formData) => {
