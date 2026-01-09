@@ -34,7 +34,7 @@ export const generateItinerary = async (formData) => {
       For "itinerary_html", use <h3> for days, <ul> for lists, and <b> for highlights. Do NOT use <html> or <body> tags.
     `;
 
-    const model = genai.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genai.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let text = response.text();
